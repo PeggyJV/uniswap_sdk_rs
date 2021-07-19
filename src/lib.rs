@@ -1,102 +1,215 @@
 use std::{ops::Rem, ptr::read};
 
-use num_bigint::{BigInt,ToBigInt};
-use num_traits::{One, Signed, Zero};
+use num_bigint::{BigInt, ToBigInt};
+use num_traits::{One, Signed, ToPrimitive, Zero};
 
+pub fn encode_sqrt_ratio_x96(amount1: BigInt, amount0: BigInt) -> BigInt {
+    let numberator = amount1 << 192;
 
-pub fn encode_sqrt_ratio_x96(amount1: BigInt, amount0: BigInt)->BigInt {
+    let ratio_x192: BigInt = numberator / amount0;
 
-let numberator = amount1 << 192;
-
-let ratio_x192:BigInt = numberator / amount0 ;
-
-return ratio_x192.sqrt();
+    return ratio_x192.sqrt();
 }
 
-
-fn mulShift(val: BigInt, mulBy: &[u8])-> BigInt {
-    let mulBy = BigInt::parse_bytes(mulBy,16 ).unwrap();
+fn mulShift(val: BigInt, mulBy: &[u8]) -> BigInt {
+    let mulBy = BigInt::parse_bytes(mulBy, 16).unwrap();
     return (val * mulBy) >> 128;
-  }
+}
 
-pub fn getSqrtRatioAtTick(tick: BigInt)->BigInt {
+pub fn getSqrtRatioAtTick(tick: BigInt) -> BigInt {
+    let MIN_TICK: BigInt = -887272.to_bigint().unwrap();
 
-    let MIN_TICK:BigInt = -887272.to_bigint().unwrap();
+    let MAX_TICK: BigInt = -(MIN_TICK.clone());
 
-    let MAX_TICK:BigInt = -(MIN_TICK.clone());
+    let MAX_UINT_256: BigInt = BigInt::parse_bytes(
+        b"115792089237316195423570985008687907853269984665640564039457584007913129639935",
+        10,
+    )
+    .unwrap();
 
-    let MAX_UINT_256: BigInt = BigInt::parse_bytes(b"115792089237316195423570985008687907853269984665640564039457584007913129639935",10).unwrap();
-    
     let Q32: BigInt = 2i32.to_bigint().unwrap().pow(32);
 
-
     assert!(tick >= MIN_TICK.clone() && tick <= MAX_TICK);
-    let tick = tick.abs();
-    let ratio = if tick.clone() & BigInt::one() !=BigInt::zero() {
-        BigInt::parse_bytes(b"fffcb933bd6fad37aa2d162d1a594001", 16).unwrap() 
-    } else{
+    let absTick = tick.abs();
+    let mut ratio = if absTick.clone() & BigInt::one() != BigInt::zero() {
+        BigInt::parse_bytes(b"fffcb933bd6fad37aa2d162d1a594001", 16).unwrap()
+    } else {
         BigInt::parse_bytes(b"100000000000000000000000000000000", 16).unwrap()
     };
-    let ratio = if (tick.clone() & BigInt::parse_bytes(b"2", 16).unwrap()) != BigInt::zero() {mulShift(ratio, b"fff97272373d413259a46990580e213a")}else{ratio};
-    let ratio = if (tick.clone() & BigInt::parse_bytes(b"4", 16).unwrap()) != BigInt::zero() {mulShift(ratio, b"fff2e50f5f656932ef12357cf3c7fdcc")}else{ratio};
-    let ratio = if (tick.clone() & BigInt::parse_bytes(b"8", 16).unwrap()) != BigInt::zero() {mulShift(ratio, b"ffe5caca7e10e4e61c3624eaa0941cd0")}else{ratio};
-    let ratio = if (tick.clone() & BigInt::parse_bytes(b"10", 16).unwrap()) != BigInt::zero() {mulShift(ratio, b"ffcb9843d60f6159c9db58835c926644")}else{ratio};
-    let ratio =if (tick.clone() & BigInt::parse_bytes(b"20", 16).unwrap()) != BigInt::zero() {mulShift(ratio, b"ff973b41fa98c081472e6896dfb254c0")}else{ratio};
-    let ratio =if (tick.clone() & BigInt::parse_bytes(b"40", 16).unwrap()) != BigInt::zero() {mulShift(ratio, b"ff2ea16466c96a3843ec78b326b52861")}else{ratio};
-    let ratio =if (tick.clone() & BigInt::parse_bytes(b"80", 16).unwrap()) != BigInt::zero() {mulShift(ratio, b"fe5dee046a99a2a811c461f1969c3053")}else{ratio};
-    let ratio =if (tick.clone() & BigInt::parse_bytes(b"100", 16).unwrap()) != BigInt::zero() {mulShift(ratio, b"fcbe86c7900a88aedcffc83b479aa3a4")}else{ratio};
-    let ratio =if (tick.clone() & BigInt::parse_bytes(b"200", 16).unwrap()) != BigInt::zero() {mulShift(ratio, b"f987a7253ac413176f2b074cf7815e54")}else{ratio};
-    let ratio =if (tick.clone() & BigInt::parse_bytes(b"400", 16).unwrap()) != BigInt::zero() {mulShift(ratio, b"f3392b0822b70005940c7a398e4b70f3")}else{ratio};
-    let ratio =if (tick.clone() & BigInt::parse_bytes(b"800", 16).unwrap()) != BigInt::zero() {mulShift(ratio, b"e7159475a2c29b7443b29c7fa6e889d9")}else{ratio};
-    let ratio =if (tick.clone() & BigInt::parse_bytes(b"1000", 16).unwrap()) != BigInt::zero() {mulShift(ratio, b"d097f3bdfd2022b8845ad8f792aa5825")}else{ratio};
-    let ratio =if (tick.clone() & BigInt::parse_bytes(b"2000", 16).unwrap()) != BigInt::zero() {mulShift(ratio, b"a9f746462d870fdf8a65dc1f90e061e5")}else{ratio};
-    let ratio =if (tick.clone() & BigInt::parse_bytes(b"4000", 16).unwrap()) != BigInt::zero() {mulShift(ratio, b"70d869a156d2a1b890bb3df62baf32f7")}else{ratio};
-    let ratio =if (tick.clone() & BigInt::parse_bytes(b"8000", 16).unwrap()) != BigInt::zero() {mulShift(ratio, b"31be135f97d08fd981231505542fcfa6")}else{ratio};
-    let ratio =if (tick.clone() & BigInt::parse_bytes(b"10000", 16).unwrap()) != BigInt::zero() {mulShift(ratio, b"9aa508b5b7a84e1c677de54f3e99bc9")}else{ratio};
-    let ratio =if (tick.clone() & BigInt::parse_bytes(b"20000", 16).unwrap()) != BigInt::zero() {mulShift(ratio, b"5d6af8dedb81196699c329225ee604")}else{ratio};
-    let ratio =if (tick.clone() & BigInt::parse_bytes(b"40000", 16).unwrap()) != BigInt::zero() {mulShift(ratio, b"2216e584f5fa1ea926041bedfe98")}else{ratio};
-    let ratio =if (tick.clone() & BigInt::parse_bytes(b"80000", 16).unwrap()) != BigInt::zero() {mulShift(ratio, b"48a170391f7dc42444e8fa2")}else{ratio};
+    ratio = if (absTick.clone() & BigInt::parse_bytes(b"2", 16).unwrap()) != BigInt::zero() {
+        mulShift(ratio, b"fff97272373d413259a46990580e213a")
+    } else {
+        ratio
+    };
+    ratio = if (absTick.clone() & BigInt::parse_bytes(b"4", 16).unwrap()) != BigInt::zero() {
+        mulShift(ratio, b"fff2e50f5f656932ef12357cf3c7fdcc")
+    } else {
+        ratio
+    };
+    ratio = if (absTick.clone() & BigInt::parse_bytes(b"8", 16).unwrap()) != BigInt::zero() {
+        mulShift(ratio, b"ffe5caca7e10e4e61c3624eaa0941cd0")
+    } else {
+        ratio
+    };
+    ratio = if (absTick.clone() & BigInt::parse_bytes(b"10", 16).unwrap()) != BigInt::zero() {
+        mulShift(ratio, b"ffcb9843d60f6159c9db58835c926644")
+    } else {
+        ratio
+    };
+    ratio = if (absTick.clone() & BigInt::parse_bytes(b"20", 16).unwrap()) != BigInt::zero() {
+        mulShift(ratio, b"ff973b41fa98c081472e6896dfb254c0")
+    } else {
+        ratio
+    };
+    ratio = if (absTick.clone() & BigInt::parse_bytes(b"40", 16).unwrap()) != BigInt::zero() {
+        mulShift(ratio, b"ff2ea16466c96a3843ec78b326b52861")
+    } else {
+        ratio
+    };
+    ratio = if (absTick.clone() & BigInt::parse_bytes(b"80", 16).unwrap()) != BigInt::zero() {
+        mulShift(ratio, b"fe5dee046a99a2a811c461f1969c3053")
+    } else {
+        ratio
+    };
+    ratio = if (absTick.clone() & BigInt::parse_bytes(b"100", 16).unwrap()) != BigInt::zero() {
+        mulShift(ratio, b"fcbe86c7900a88aedcffc83b479aa3a4")
+    } else {
+        ratio
+    };
+    ratio = if (absTick.clone() & BigInt::parse_bytes(b"200", 16).unwrap()) != BigInt::zero() {
+        mulShift(ratio, b"f987a7253ac413176f2b074cf7815e54")
+    } else {
+        ratio
+    };
+    ratio = if (absTick.clone() & BigInt::parse_bytes(b"400", 16).unwrap()) != BigInt::zero() {
+        mulShift(ratio, b"f3392b0822b70005940c7a398e4b70f3")
+    } else {
+        ratio
+    };
+    ratio = if (absTick.clone() & BigInt::parse_bytes(b"800", 16).unwrap()) != BigInt::zero() {
+        mulShift(ratio, b"e7159475a2c29b7443b29c7fa6e889d9")
+    } else {
+        ratio
+    };
+    ratio = if (absTick.clone() & BigInt::parse_bytes(b"1000", 16).unwrap()) != BigInt::zero() {
+        mulShift(ratio, b"d097f3bdfd2022b8845ad8f792aa5825")
+    } else {
+        ratio
+    };
+    ratio = if (absTick.clone() & BigInt::parse_bytes(b"2000", 16).unwrap()) != BigInt::zero() {
+        mulShift(ratio, b"a9f746462d870fdf8a65dc1f90e061e5")
+    } else {
+        ratio
+    };
+    ratio = if (absTick.clone() & BigInt::parse_bytes(b"4000", 16).unwrap()) != BigInt::zero() {
+        mulShift(ratio, b"70d869a156d2a1b890bb3df62baf32f7")
+    } else {
+        ratio
+    };
+    ratio = if (absTick.clone() & BigInt::parse_bytes(b"8000", 16).unwrap()) != BigInt::zero() {
+        mulShift(ratio, b"31be135f97d08fd981231505542fcfa6")
+    } else {
+        ratio
+    };
+    ratio = if (absTick.clone() & BigInt::parse_bytes(b"10000", 16).unwrap()) != BigInt::zero() {
+        mulShift(ratio, b"9aa508b5b7a84e1c677de54f3e99bc9")
+    } else {
+        ratio
+    };
+    ratio = if (absTick.clone() & BigInt::parse_bytes(b"20000", 16).unwrap()) != BigInt::zero() {
+        mulShift(ratio, b"5d6af8dedb81196699c329225ee604")
+    } else {
+        ratio
+    };
+    ratio = if (absTick.clone() & BigInt::parse_bytes(b"40000", 16).unwrap()) != BigInt::zero() {
+        mulShift(ratio, b"2216e584f5fa1ea926041bedfe98")
+    } else {
+        ratio
+    };
+    ratio = if (absTick.clone() & BigInt::parse_bytes(b"80000", 16).unwrap()) != BigInt::zero() {
+        mulShift(ratio, b"48a170391f7dc42444e8fa2")
+    } else {
+        ratio
+    };
 
-    let ratio =if tick.clone() > BigInt::zero() {MAX_UINT_256 / ratio}else{ ratio };
+    ratio = if tick.clone() > BigInt::zero() {
+        MAX_UINT_256 / ratio
+    } else {
+        ratio
+    };
 
-    let ratio =if ratio.clone().rem(Q32.clone()) > BigInt::zero()
-     {
-    ratio/Q32 + BigInt::one()
-
-    }else{
-        ratio/Q32
+    ratio = if ratio.clone().rem(Q32.clone()) > BigInt::zero() {
+        ratio / Q32 + BigInt::one()
+    } else {
+        ratio / Q32
     };
     return ratio;
 }
 
-pub fn getTickAtSqrtRatio(sqrtRatioX96:BigInt)->BigInt {
-
+pub fn getTickAtSqrtRatio(sqrtRatioX96: BigInt) -> i32 {
     let MIN_SQRT_RATIO: BigInt = 4295128739i64.to_bigint().unwrap();
 
-    let MAX_SQRT_RATIO: BigInt = BigInt::parse_bytes(b"1461446703485210103287273052203988822378723970342",10).unwrap();
-    
+    let MAX_SQRT_RATIO: BigInt =
+        BigInt::parse_bytes(b"1461446703485210103287273052203988822378723970342", 10).unwrap();
 
     assert!(sqrtRatioX96 >= MIN_SQRT_RATIO && sqrtRatioX96 < MAX_SQRT_RATIO);
 
-    let sqrtRatioX128 = sqrtRatioX96 << 32;
-    let msb = sqrtRatioX128;
+    let sqrtRatioX128: BigInt = sqrtRatioX96.clone() << 32;
+    let msb = most_significant_bit(sqrtRatioX128.clone());
 
+    let mut r = if msb >= 128.to_bigint().unwrap() {
+        sqrtRatioX128.clone() >> (msb.to_i64().unwrap() - 127)
+    } else {
+        sqrtRatioX128 << (127 - msb.to_i64().unwrap())
+    };
 
-    todo!();
+    let mut log_2 = (msb - 128.to_bigint().unwrap()) << 64;
 
+    for i in 0..14 {
+        r = (r.clone() * r) >> 127;
+        let f: BigInt = r.clone() >> 128;
+        log_2 = log_2 | (f.clone() <<(63 - i));
+        r = r >> f.clone().to_i64().unwrap();
+    }
 
+    let loq_sqrt0001: BigInt =
+        log_2 * BigInt::parse_bytes(b"255738958999603826347141", 10).unwrap();
+
+    let tick_low: BigInt = (loq_sqrt0001.clone()
+        - BigInt::parse_bytes(b"3402992956809132418596140100660247210", 10).unwrap())
+        >> 128;
+    let tick_low = tick_low.to_i32().unwrap();
+
+    let tick_high: BigInt = (loq_sqrt0001.clone()
+        + BigInt::parse_bytes(b"291339464771989622907027621153398088495", 10).unwrap())
+        >> 128;
+    let tick_high = tick_high.to_i32().unwrap();
+    if tick_low == tick_high {
+        return tick_low;
+    } else if getSqrtRatioAtTick(tick_high.to_bigint().unwrap()) <= sqrtRatioX96 {
+        return tick_high;
+    } else {
+        return tick_low;
+    }
 }
 
-pub fn mostSignificantBit(mut x:BigInt)->BigInt {
+pub fn most_significant_bit(mut x: BigInt) -> BigInt {
     assert!(x.clone() >= BigInt::zero());
-    let TWO:BigInt = 2.to_bigint().unwrap();
-    let POWERS_OF_2:Vec<(u32,BigInt)> =  [128u32, 64u32, 32u32, 16u32, 8u32, 4u32, 2u32, 1u32].iter().map(|x| (*x,TWO.pow(*x))).collect();
+    let TWO: BigInt = 2.to_bigint().unwrap();
+    let POWERS_OF_2: Vec<(u32, BigInt)> = [128u32, 64u32, 32u32, 16u32, 8u32, 4u32, 2u32, 1u32]
+        .iter()
+        .map(|x| (*x, TWO.pow(*x)))
+        .collect();
 
-    let MAX_UINT_256: BigInt = BigInt::parse_bytes(b"115792089237316195423570985008687907853269984665640564039457584007913129639935",10).unwrap();
-    assert!(x.clone()< MAX_UINT_256);
+    let MAX_UINT_256: BigInt = BigInt::parse_bytes(
+        b"115792089237316195423570985008687907853269984665640564039457584007913129639935",
+        10,
+    )
+    .unwrap();
+    assert!(x.clone() < MAX_UINT_256);
     let mut msb = BigInt::zero();
 
-    for (power,min) in POWERS_OF_2{
+    for (power, min) in POWERS_OF_2 {
         if x >= min {
             x >>= power;
             msb += power;
@@ -104,16 +217,12 @@ pub fn mostSignificantBit(mut x:BigInt)->BigInt {
     }
 
     return msb;
-
 }
-
-
-
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use num_bigint::{ToBigInt};
+    use num_bigint::ToBigInt;
     #[test]
     fn encode_sqrt_ratio_x96_1() {
         let x = encode_sqrt_ratio_x96(100.to_bigint().unwrap(), 1.to_bigint().unwrap());
@@ -136,30 +245,64 @@ mod tests {
     }
     #[test]
     fn getSqrtRatioAtTick_1() {
-
-
-        
-        let MIN_TICK:BigInt = -887272.to_bigint().unwrap();
+        let MIN_TICK = -887272i32;
 
         let MIN_SQRT_RATIO: BigInt = 4295128739i64.to_bigint().unwrap();
 
-        let x = getSqrtRatioAtTick(MIN_SQRT_RATIO);
+        let x = getSqrtRatioAtTick(MIN_TICK.to_bigint().unwrap());
+        assert_eq!(x, MIN_SQRT_RATIO);
+    }
+
+    #[test]
+    fn getSqrtRatioAtTick_2() {
+        let MIN_TICK = -887272i32;
+        let MAX_TICK = -MIN_TICK.clone();
+
+        let MAX_SQRT_RATIO: BigInt =
+        BigInt::parse_bytes(b"1461446703485210103287273052203988822378723970342", 10).unwrap();
+
+        let x = getSqrtRatioAtTick(MAX_TICK.to_bigint().unwrap());
+        assert_eq!(x, MAX_SQRT_RATIO);
+    }
+
+    #[test]
+    fn getTickAtSqrtRatio_1() {
+        let MIN_TICK = -887272i32;
+        let MAX_TICK = -MIN_TICK.clone();
+
+        let MIN_SQRT_RATIO: BigInt = 4295128739i64.to_bigint().unwrap();
+
+        let x = getTickAtSqrtRatio(MIN_SQRT_RATIO);
         assert_eq!(x, MIN_TICK);
     }
 
     #[test]
+    fn getTickAtSqrtRatio_2() {
+        let MIN_TICK = -887272i32;
+        let MAX_TICK = -MIN_TICK.clone();
+
+        let MAX_SQRT_RATIO: BigInt =
+        BigInt::parse_bytes(b"1461446703485210103287273052203988822378723970342", 10).unwrap();
+
+        let x = getTickAtSqrtRatio(MAX_SQRT_RATIO-BigInt::one());
+        assert_eq!(x, MAX_TICK -1);
+    }
+
+    #[test]
     fn test_most_significant_bits() {
-        let TWO:BigInt = 2.to_bigint().unwrap();
+        let TWO: BigInt = 2.to_bigint().unwrap();
 
         for i in 1u32..256u32 {
             let x = TWO.pow(i);
-            assert_eq!(i.to_bigint().unwrap(),mostSignificantBit(x))
+            assert_eq!(i.to_bigint().unwrap(), most_significant_bit(x))
         }
 
         for i in 2u32..256u32 {
             let x = TWO.pow(i) - BigInt::one();
-            assert_eq!(i.to_bigint().unwrap() - BigInt::one(),mostSignificantBit(x))
-       }
+            assert_eq!(
+                i.to_bigint().unwrap() - BigInt::one(),
+                most_significant_bit(x)
+            )
+        }
     }
-
 }
