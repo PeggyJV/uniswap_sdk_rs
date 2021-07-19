@@ -1,4 +1,4 @@
-use std::ops::Rem;
+use std::{ops::Rem, ptr::read};
 
 use num_bigint::{BigInt,ToBigInt};
 use num_traits::{One, Signed, Zero};
@@ -25,10 +25,6 @@ pub fn getSqrtRatioAtTick(tick: BigInt)->BigInt {
 
     let MAX_TICK:BigInt = -(MIN_TICK.clone());
 
-    let MIN_SQRT_RATIO: BigInt = 4295128739i64.to_bigint().unwrap();
-
-    let MAX_SQRT_RATIO: BigInt = BigInt::parse_bytes(b"1461446703485210103287273052203988822378723970342",10).unwrap();
-    
     let MAX_UINT_256: BigInt = BigInt::parse_bytes(b"115792089237316195423570985008687907853269984665640564039457584007913129639935",10).unwrap();
     
     let Q32: BigInt = 2i32.to_bigint().unwrap().pow(32);
@@ -73,9 +69,43 @@ pub fn getSqrtRatioAtTick(tick: BigInt)->BigInt {
     return ratio;
 }
 
-// pub fn getTickAtSqrtRatio()
+pub fn getTickAtSqrtRatio(sqrtRatioX96:BigInt)->BigInt {
+
+    let MIN_SQRT_RATIO: BigInt = 4295128739i64.to_bigint().unwrap();
+
+    let MAX_SQRT_RATIO: BigInt = BigInt::parse_bytes(b"1461446703485210103287273052203988822378723970342",10).unwrap();
+    
+
+    assert!(sqrtRatioX96 >= MIN_SQRT_RATIO && sqrtRatioX96 < MAX_SQRT_RATIO);
+
+    let sqrtRatioX128 = sqrtRatioX96 << 32;
+    let msb = sqrtRatioX128;
 
 
+    todo!();
+
+
+}
+
+pub fn mostSignificantBit(mut x:BigInt)->BigInt {
+    assert!(x.clone() >= BigInt::zero());
+    let TWO:BigInt = 2.to_bigint().unwrap();
+    let POWERS_OF_2:Vec<(u32,BigInt)> =  [128u32, 64u32, 32u32, 16u32, 8u32, 4u32, 2u32, 1u32].iter().map(|x| (*x,TWO.pow(*x))).collect();
+
+    let MAX_UINT_256: BigInt = BigInt::parse_bytes(b"115792089237316195423570985008687907853269984665640564039457584007913129639935",10).unwrap();
+    assert!(x.clone()< MAX_UINT_256);
+    let mut msb = BigInt::zero();
+
+    for (power,min) in POWERS_OF_2{
+        if x >= min {
+            x >>= power;
+            msb += power;
+        }
+    }
+
+    return msb;
+
+}
 
 
 
@@ -106,12 +136,30 @@ mod tests {
     }
     #[test]
     fn getSqrtRatioAtTick_1() {
+
+
+        
         let MIN_TICK:BigInt = -887272.to_bigint().unwrap();
 
         let MIN_SQRT_RATIO: BigInt = 4295128739i64.to_bigint().unwrap();
 
         let x = getSqrtRatioAtTick(MIN_SQRT_RATIO);
         assert_eq!(x, MIN_TICK);
+    }
+
+    #[test]
+    fn test_most_significant_bits() {
+        let TWO:BigInt = 2.to_bigint().unwrap();
+
+        for i in 1u32..256u32 {
+            let x = TWO.pow(i);
+            assert_eq!(i.to_bigint().unwrap(),mostSignificantBit(x))
+        }
+
+        for i in 2u32..256u32 {
+            let x = TWO.pow(i) - BigInt::one();
+            assert_eq!(i.to_bigint().unwrap() - BigInt::one(),mostSignificantBit(x))
+       }
     }
 
 }
