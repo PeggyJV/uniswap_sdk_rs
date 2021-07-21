@@ -1,4 +1,4 @@
-use std::{ops::Rem, ptr::read};
+use std::{cmp::Ordering, ops::{Mul, Rem}, ptr::read};
 
 use num_bigint::{BigInt, ToBigInt};
 use num_traits::{One, Signed, ToPrimitive, Zero};
@@ -218,6 +218,93 @@ pub fn most_significant_bit(mut x: BigInt) -> BigInt {
 
     return msb;
 }
+#[derive(Clone)]
+struct Token{
+    symbol: String,
+    address: String,
+}
+
+impl Token {
+    pub fn sorts_before(&self, other: &Token) -> bool {
+         self.address.to_lowercase() < other.address.to_lowercase()
+    }
+}
+
+impl PartialEq for Token {
+    fn eq(&self, other: &Token) -> bool {
+        self.symbol == other.symbol && self.address == other.address
+    }
+}
+
+#[derive(Clone)]
+struct Price{
+    amount_0: BigInt,
+    amount_1: BigInt,
+    token_0: Token,
+    token_1: Token,
+}
+
+impl PartialEq for Price {
+    fn eq(&self, other: &Self) -> bool {
+        self.amount_0 == other.amount_0 && self.amount_1 == other.amount_1 && self.token_0 == other.token_0 && self.token_1 == other.token_1
+    }
+}
+
+impl Eq for Price {
+}
+
+
+impl std::cmp::PartialOrd for Price {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl std::cmp::Ord for Price{
+    fn cmp(&self, other: &Self) -> Ordering {
+        (self.amount_0.clone() * other.amount_1.clone()).cmp(&(other.amount_0.clone() * self.amount_1.clone()))
+    }
+}
+
+
+fn tickToPrice(base_token:Token,quote_token:Token,tick:BigInt) -> Price {
+
+    let  Q96 = 2.to_bigint().unwrap().pow(96);
+    let Q192 = Q96.pow(2);
+
+    let sqrtRatioX96 = getSqrtRatioAtTick(tick);
+    let ratioX192 = sqrtRatioX96.clone()*sqrtRatioX96;
+
+    
+
+    if base_token.sorts_before(&quote_token) {
+        return Price{token_0:base_token,token_1:quote_token,amount_0:Q192,amount_1:ratioX192};
+        } else{
+            return Price{token_0:quote_token,token_1:base_token,amount_0:ratioX192,amount_1:Q192};
+        }
+}
+
+fn priceToTick(price:Price)->i32{
+    let sorted = price.token_0.sorts_before(&price.token_1.clone());
+    let sqrtRatioX96 = if sorted {encode_sqrt_ratio_x96(price.amount_0.clone(), price.amount_1.clone())} else{encode_sqrt_ratio_x96(price.amount_1.clone(), price.amount_0.clone())};
+
+    let tick = getTickAtSqrtRatio(sqrtRatioX96);
+    let nextTickPrice = tickToPrice(price.token_0.clone(),price.token_1.clone(),tick+ BigInt::one());
+    if sorted{
+        if !(price < nextTickPrice) {
+            return tick + 1;
+        } else if !(price > nextTickPrice){
+            return tick + 1;
+
+        } else{
+            return tick;
+        }
+    } else{
+        return tick;
+
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
