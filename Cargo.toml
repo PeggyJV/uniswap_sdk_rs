@@ -1,5 +1,5 @@
 [package]
-name = "uniswap_v3_rs"
+name = "uniswap_v3_sdk"
 version = "0.1.0"
 authors = ["Zaki Manian <zaki@manian.org>"]
 edition = "2018"
