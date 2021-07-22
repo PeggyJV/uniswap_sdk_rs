@@ -267,7 +267,7 @@ impl std::cmp::Ord for Price{
 }
 
 
-fn tickToPrice(base_token:Token,quote_token:Token,tick:BigInt) -> Price {
+pub fn tickToPrice(base_token:Token,quote_token:Token,tick:BigInt) -> Price {
 
     let  Q96 = 2.to_bigint().unwrap().pow(96);
     let Q192 = Q96.pow(2);
@@ -284,7 +284,7 @@ fn tickToPrice(base_token:Token,quote_token:Token,tick:BigInt) -> Price {
         }
 }
 
-fn priceToTick(price:Price)->i32{
+pub fn priceToTick(price:Price)->i32{
     let sorted = price.token_0.sorts_before(&price.token_1.clone());
     let sqrtRatioX96 = if sorted {encode_sqrt_ratio_x96(price.amount_0.clone(), price.amount_1.clone())} else{encode_sqrt_ratio_x96(price.amount_1.clone(), price.amount_0.clone())};
 
