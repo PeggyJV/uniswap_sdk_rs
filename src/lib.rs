@@ -220,8 +220,8 @@ pub fn most_significant_bit(mut x: BigInt) -> BigInt {
 }
 #[derive(Clone)]
 pub struct Token{
-    symbol: String,
-    address: String,
+    pub symbol: String,
+    pub address: String,
 }
 
 impl Token {
@@ -238,10 +238,10 @@ impl PartialEq for Token {
 
 #[derive(Clone)]
 pub struct Price{
-    amount_0: BigInt,
-    amount_1: BigInt,
-    token_0: Token,
-    token_1: Token,
+    pub amount_0: BigInt,
+    pub amount_1: BigInt,
+    pub token_0: Token,
+    pub token_1: Token,
 }
 
 impl PartialEq for Price {
