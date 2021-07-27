@@ -285,9 +285,9 @@ pub fn tickToPrice(base_token:Token,quote_token:Token,tick:BigInt) -> Price {
     
 
     if base_token.sorts_before(&quote_token) {
-        return Price{token_0:base_token,token_1:quote_token,amount_0:ratioX192,amount_1: Q192};
+        return Price{token_0:base_token,token_1:quote_token,amount_0:Q192,amount_1: ratioX192};
         } else{
-            return Price{token_0:quote_token,token_1:base_token,amount_0:Q192,amount_1:ratioX192};
+            return Price{token_0:quote_token,token_1:base_token,amount_0:ratioX192,amount_1:Q192};
         }
 }
 
@@ -300,16 +300,19 @@ pub fn priceToTick(price:Price)->i32{
     if sorted{
         if !(price < nextTickPrice) {
             return tick + 1;
-        } else if !(price > nextTickPrice){
-            return tick + 1;
-
         } else{
             return tick;
         }
-    } else{
-        return tick;
+        } else{
+            if !(price > nextTickPrice){
+                return tick + 1;
+    
+            } else{
+                return tick;
+    
+            }
+        }
 
-    }
 }
 
 
@@ -405,23 +408,38 @@ mod tests {
 
         let t0 = Token{
             symbol:"TestToken0".to_string(),
-            address:"0x0".to_string(),
+            address:"0x1".to_string(),
         };
         let t1 = Token{
             symbol:"TestToken1".to_string(),
-            address:"0x1".to_string(),
+            address:"0x0".to_string(),
         }; 
         let price = tickToPrice(t0,t1, -276423.to_bigint().unwrap());
-        dbg!(&price.amount_0);
-        dbg!(&price.amount_1);
+
 
         let scalar = BigRational::new(10.to_bigint().unwrap().pow(18),10.to_bigint().unwrap().pow(6));
-
-        dbg!(scalar.numer());
-        dbg!(scalar.denom());
 
         let price_rational = price.to_rational() * scalar;
 
         assert_eq!(price_rational.to_f64().unwrap().to_string(),"0.990151951561538")
     }
+    #[test]
+    fn test_price_to_ticks() {
+
+        let t0 = Token{
+            symbol:"TestToken0".to_string(),
+            address:"0x1".to_string(),
+        };
+        let t1 = Token{
+            symbol:"TestToken1".to_string(),
+            address:"0x0".to_string(),
+        }; 
+
+        let price = tickToPrice(t0,t1, -276423.to_bigint().unwrap());
+        let tick = priceToTick(price);
+        assert_eq!(tick,-276423i32);
+    }
+
+
+
 }
