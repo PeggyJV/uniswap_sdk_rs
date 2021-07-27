@@ -2,6 +2,7 @@ use std::{cmp::Ordering, ops::{Mul, Rem}, ptr::read};
 
 use num_bigint::{BigInt, ToBigInt};
 use num_traits::{One, Signed, ToPrimitive, Zero};
+use num_rational::BigRational;
 
 pub fn encode_sqrt_ratio_x96(amount1: BigInt, amount0: BigInt) -> BigInt {
     let numberator = amount1 << 192;
@@ -244,6 +245,12 @@ pub struct Price{
     pub token_1: Token,
 }
 
+impl Price {
+    pub fn to_rational(&self) -> BigRational{
+        BigRational::new(self.amount_0.clone(), self.amount_1.clone())
+    }
+}
+
 impl PartialEq for Price {
     fn eq(&self, other: &Self) -> bool {
         self.amount_0 == other.amount_0 && self.amount_1 == other.amount_1 && self.token_0 == other.token_0 && self.token_1 == other.token_1
@@ -278,9 +285,9 @@ pub fn tickToPrice(base_token:Token,quote_token:Token,tick:BigInt) -> Price {
     
 
     if base_token.sorts_before(&quote_token) {
-        return Price{token_0:base_token,token_1:quote_token,amount_0:Q192,amount_1:ratioX192};
+        return Price{token_0:base_token,token_1:quote_token,amount_0:ratioX192,amount_1: Q192};
         } else{
-            return Price{token_0:quote_token,token_1:base_token,amount_0:ratioX192,amount_1:Q192};
+            return Price{token_0:quote_token,token_1:base_token,amount_0:Q192,amount_1:ratioX192};
         }
 }
 
@@ -310,6 +317,7 @@ pub fn priceToTick(price:Price)->i32{
 mod tests {
     use super::*;
     use num_bigint::ToBigInt;
+    use num_rational::BigRational;
     #[test]
     fn encode_sqrt_ratio_x96_1() {
         let x = encode_sqrt_ratio_x96(100.to_bigint().unwrap(), 1.to_bigint().unwrap());
@@ -391,5 +399,29 @@ mod tests {
                 most_significant_bit(x)
             )
         }
+    }
+    #[test]
+    fn test_ticks_to_price() {
+
+        let t0 = Token{
+            symbol:"TestToken0".to_string(),
+            address:"0x0".to_string(),
+        };
+        let t1 = Token{
+            symbol:"TestToken1".to_string(),
+            address:"0x1".to_string(),
+        }; 
+        let price = tickToPrice(t0,t1, -276423.to_bigint().unwrap());
+        dbg!(&price.amount_0);
+        dbg!(&price.amount_1);
+
+        let scalar = BigRational::new(10.to_bigint().unwrap().pow(18),10.to_bigint().unwrap().pow(6));
+
+        dbg!(scalar.numer());
+        dbg!(scalar.denom());
+
+        let price_rational = price.to_rational() * scalar;
+
+        assert_eq!(price_rational.to_f64().unwrap().to_string(),"0.990151951561538")
     }
 }
