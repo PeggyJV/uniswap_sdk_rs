@@ -1,8 +1,12 @@
-use std::{cmp::Ordering, ops::{Mul, Rem}, ptr::read};
+use std::{
+    cmp::Ordering,
+    ops::{Mul, Rem},
+    ptr::read,
+};
 
 use num_bigint::{BigInt, ToBigInt};
-use num_traits::{One, Signed, ToPrimitive, Zero};
 use num_rational::BigRational;
+use num_traits::{One, Signed, ToPrimitive, Zero};
 
 pub fn encode_sqrt_ratio_x96(amount1: BigInt, amount0: BigInt) -> BigInt {
     let numberator = amount1 << 192;
@@ -169,7 +173,7 @@ pub fn getTickAtSqrtRatio(sqrtRatioX96: BigInt) -> i32 {
     for i in 0..14 {
         r = (r.clone() * r) >> 127;
         let f: BigInt = r.clone() >> 128;
-        log_2 = log_2 | (f.clone() <<(63 - i));
+        log_2 = log_2 | (f.clone() << (63 - i));
         r = r >> f.clone().to_i64().unwrap();
     }
 
@@ -220,14 +224,14 @@ pub fn most_significant_bit(mut x: BigInt) -> BigInt {
     return msb;
 }
 #[derive(Clone)]
-pub struct Token{
+pub struct Token {
     pub symbol: String,
     pub address: String,
 }
 
 impl Token {
     pub fn sorts_before(&self, other: &Token) -> bool {
-         self.address.to_lowercase() < other.address.to_lowercase()
+        self.address.to_lowercase() < other.address.to_lowercase()
     }
 }
 
@@ -238,7 +242,7 @@ impl PartialEq for Token {
 }
 
 #[derive(Clone)]
-pub struct Price{
+pub struct Price {
     pub amount_0: BigInt,
     pub amount_1: BigInt,
     pub token_0: Token,
@@ -246,20 +250,21 @@ pub struct Price{
 }
 
 impl Price {
-    pub fn to_rational(&self) -> BigRational{
+    pub fn to_rational(&self) -> BigRational {
         BigRational::new(self.amount_0.clone(), self.amount_1.clone())
     }
 }
 
 impl PartialEq for Price {
     fn eq(&self, other: &Self) -> bool {
-        self.amount_0 == other.amount_0 && self.amount_1 == other.amount_1 && self.token_0 == other.token_0 && self.token_1 == other.token_1
+        self.amount_0 == other.amount_0
+            && self.amount_1 == other.amount_1
+            && self.token_0 == other.token_0
+            && self.token_1 == other.token_1
     }
 }
 
-impl Eq for Price {
-}
-
+impl Eq for Price {}
 
 impl std::cmp::PartialOrd for Price {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -267,54 +272,124 @@ impl std::cmp::PartialOrd for Price {
     }
 }
 
-impl std::cmp::Ord for Price{
+impl std::cmp::Ord for Price {
     fn cmp(&self, other: &Self) -> Ordering {
-        (self.amount_0.clone() * other.amount_1.clone()).cmp(&(other.amount_0.clone() * self.amount_1.clone()))
+        (self.amount_0.clone() * other.amount_1.clone())
+            .cmp(&(other.amount_0.clone() * self.amount_1.clone()))
     }
 }
 
-
-pub fn tickToPrice(base_token:Token,quote_token:Token,tick:BigInt) -> Price {
-
-    let  Q96 = 2.to_bigint().unwrap().pow(96);
+pub fn tickToPrice(base_token: Token, quote_token: Token, tick: BigInt) -> Price {
+    let Q96 = 2.to_bigint().unwrap().pow(96);
     let Q192 = Q96.pow(2);
 
     let sqrtRatioX96 = getSqrtRatioAtTick(tick);
-    let ratioX192 = sqrtRatioX96.clone()*sqrtRatioX96;
-
-    
+    let ratioX192 = sqrtRatioX96.clone() * sqrtRatioX96;
 
     if base_token.sorts_before(&quote_token) {
-        return Price{token_0:base_token,token_1:quote_token,amount_0:Q192,amount_1: ratioX192};
-        } else{
-            return Price{token_0:quote_token,token_1:base_token,amount_0:ratioX192,amount_1:Q192};
-        }
+        return Price {
+            token_0: base_token,
+            token_1: quote_token,
+            amount_0: Q192,
+            amount_1: ratioX192,
+        };
+    } else {
+        return Price {
+            token_0: quote_token,
+            token_1: base_token,
+            amount_0: ratioX192,
+            amount_1: Q192,
+        };
+    }
 }
 
-pub fn priceToTick(price:Price)->i32{
+pub fn priceToTick(price: Price) -> i32 {
     let sorted = price.token_0.sorts_before(&price.token_1.clone());
-    let sqrtRatioX96 = if sorted {encode_sqrt_ratio_x96(price.amount_0.clone(), price.amount_1.clone())} else{encode_sqrt_ratio_x96(price.amount_1.clone(), price.amount_0.clone())};
+    let sqrtRatioX96 = if sorted {
+        encode_sqrt_ratio_x96(price.amount_0.clone(), price.amount_1.clone())
+    } else {
+        encode_sqrt_ratio_x96(price.amount_1.clone(), price.amount_0.clone())
+    };
 
     let tick = getTickAtSqrtRatio(sqrtRatioX96);
-    let nextTickPrice = tickToPrice(price.token_0.clone(),price.token_1.clone(),tick+ BigInt::one());
-    if sorted{
+    let nextTickPrice = tickToPrice(
+        price.token_0.clone(),
+        price.token_1.clone(),
+        tick + BigInt::one(),
+    );
+    if sorted {
         if !(price < nextTickPrice) {
             return tick + 1;
-        } else{
+        } else {
             return tick;
         }
-        } else{
-            if !(price > nextTickPrice){
-                return tick + 1;
-    
-            } else{
-                return tick;
-    
-            }
+    } else {
+        if !(price > nextTickPrice) {
+            return tick + 1;
+        } else {
+            return tick;
         }
-
+    }
 }
 
+pub fn maxLiquidityForAmount0(
+    sqrtRatioAX96: BigInt,
+    sqrtRatioBX96: BigInt,
+    amount0: BigInt,
+) -> BigInt {
+    let Q96 = 2.to_bigint().unwrap().pow(96);
+    let (sqrtRatioAX96, sqrtRatioBX96) = if sqrtRatioAX96 > sqrtRatioBX96 {
+        (sqrtRatioBX96, sqrtRatioAX96)
+    } else {
+        (sqrtRatioAX96, sqrtRatioBX96)
+    };
+
+    let numerator = (amount0 * sqrtRatioAX96.clone()) * sqrtRatioBX96.clone();
+    let denominator = (sqrtRatioBX96 - sqrtRatioAX96) * Q96;
+    return numerator / denominator;
+}
+
+pub fn maxLiquidityForAmount1(
+    sqrtRatioAX96: BigInt,
+    sqrtRatioBX96: BigInt,
+    amount1: BigInt,
+) -> BigInt {
+    let Q96 = 2.to_bigint().unwrap().pow(96);
+    let (sqrtRatioAX96, sqrtRatioBX96) = if sqrtRatioAX96 > sqrtRatioBX96 {
+        (sqrtRatioBX96, sqrtRatioAX96)
+    } else {
+        (sqrtRatioAX96, sqrtRatioBX96)
+    };
+    return (amount1 * Q96) / (sqrtRatioBX96 - sqrtRatioAX96);
+}
+
+pub fn maxLiquidityForAmounts(
+    sqrtRatioCurrentX96: BigInt,
+    sqrtRatioAX96: BigInt,
+    sqrtRatioBX96: BigInt,
+    amount0: BigInt,
+    amount1: BigInt,
+) -> BigInt {
+    let (sqrtRatioAX96, sqrtRatioBX96) = if sqrtRatioAX96 > sqrtRatioBX96 {
+        (sqrtRatioBX96, sqrtRatioAX96)
+    } else {
+        (sqrtRatioAX96, sqrtRatioBX96)
+    };
+    if (sqrtRatioCurrentX96 <= sqrtRatioAX96) {
+        return maxLiquidityForAmount0(sqrtRatioAX96, sqrtRatioBX96, amount0);
+    } else if (sqrtRatioCurrentX96 < sqrtRatioBX96) {
+        let liquidity0 =
+            maxLiquidityForAmount0(sqrtRatioCurrentX96.clone(), sqrtRatioBX96, amount0);
+        let liquidity1 = maxLiquidityForAmount1(sqrtRatioAX96, sqrtRatioCurrentX96, amount1);
+        if liquidity0 < liquidity1 {
+            return liquidity0;
+        } else {
+            return liquidity1;
+        }
+    } else {
+        return maxLiquidityForAmount1(sqrtRatioAX96, sqrtRatioBX96, amount1);
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -357,7 +432,7 @@ mod tests {
         let MAX_TICK = -MIN_TICK.clone();
 
         let MAX_SQRT_RATIO: BigInt =
-        BigInt::parse_bytes(b"1461446703485210103287273052203988822378723970342", 10).unwrap();
+            BigInt::parse_bytes(b"1461446703485210103287273052203988822378723970342", 10).unwrap();
 
         let x = getSqrtRatioAtTick(MAX_TICK.to_bigint().unwrap());
         assert_eq!(x, MAX_SQRT_RATIO);
@@ -380,10 +455,10 @@ mod tests {
         let MAX_TICK = -MIN_TICK.clone();
 
         let MAX_SQRT_RATIO: BigInt =
-        BigInt::parse_bytes(b"1461446703485210103287273052203988822378723970342", 10).unwrap();
+            BigInt::parse_bytes(b"1461446703485210103287273052203988822378723970342", 10).unwrap();
 
-        let x = getTickAtSqrtRatio(MAX_SQRT_RATIO-BigInt::one());
-        assert_eq!(x, MAX_TICK -1);
+        let x = getTickAtSqrtRatio(MAX_SQRT_RATIO - BigInt::one());
+        assert_eq!(x, MAX_TICK - 1);
     }
 
     #[test]
@@ -405,41 +480,41 @@ mod tests {
     }
     #[test]
     fn test_ticks_to_price() {
-
-        let t0 = Token{
-            symbol:"TestToken0".to_string(),
-            address:"0x1".to_string(),
+        let t0 = Token {
+            symbol: "TestToken0".to_string(),
+            address: "0x1".to_string(),
         };
-        let t1 = Token{
-            symbol:"TestToken1".to_string(),
-            address:"0x0".to_string(),
-        }; 
-        let price = tickToPrice(t0,t1, -276423.to_bigint().unwrap());
+        let t1 = Token {
+            symbol: "TestToken1".to_string(),
+            address: "0x0".to_string(),
+        };
+        let price = tickToPrice(t0, t1, 60000.to_bigint().unwrap());
 
-
-        let scalar = BigRational::new(10.to_bigint().unwrap().pow(18),10.to_bigint().unwrap().pow(6));
+        let scalar = BigRational::new(
+            10.to_bigint().unwrap().pow(18),
+            10.to_bigint().unwrap().pow(6),
+        );
 
         let price_rational = price.to_rational() * scalar;
 
-        assert_eq!(price_rational.to_f64().unwrap().to_string(),"0.990151951561538")
+        assert_eq!(
+            price_rational.to_f64().unwrap().to_string(),
+            "0.990151951561538"
+        )
     }
     #[test]
     fn test_price_to_ticks() {
-
-        let t0 = Token{
-            symbol:"TestToken0".to_string(),
-            address:"0x1".to_string(),
+        let t0 = Token {
+            symbol: "TestToken0".to_string(),
+            address: "0x1".to_string(),
         };
-        let t1 = Token{
-            symbol:"TestToken1".to_string(),
-            address:"0x0".to_string(),
-        }; 
+        let t1 = Token {
+            symbol: "TestToken1".to_string(),
+            address: "0x0".to_string(),
+        };
 
-        let price = tickToPrice(t0,t1, -276423.to_bigint().unwrap());
+        let price = tickToPrice(t0, t1, -276423.to_bigint().unwrap());
         let tick = priceToTick(price);
-        assert_eq!(tick,-276423i32);
+        assert_eq!(tick, -276423i32);
     }
-
-
-
 }
