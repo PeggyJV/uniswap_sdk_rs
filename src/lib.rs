@@ -311,15 +311,12 @@ pub fn priceToTick(price: Price) -> i32 {
     };
 
     let mut tick = getTickAtSqrtRatio(sqrtRatioX96);
-    dbg!(tick);
-    dbg!(&price);
 
     let nextTickPrice = tickToPrice(
         price.token_0.clone(),
         price.token_1.clone(),
         tick + BigInt::one(),
     );
-    dbg!(&nextTickPrice);
     if sorted {
         if !(price < nextTickPrice) {
             tick = tick + 1;
