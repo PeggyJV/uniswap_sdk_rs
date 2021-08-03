@@ -326,7 +326,7 @@ pub fn priceToTick(price: Price) -> i32 {
             tick= tick + 1;
     }
 }
-return -(tick);
+return tick;
 }
 pub fn maxLiquidityForAmount0(
     sqrtRatioAX96: BigInt,
