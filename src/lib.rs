@@ -9,10 +9,8 @@ use num_rational::BigRational;
 use num_traits::{One, Signed, ToPrimitive, Zero};
 
 pub fn encode_sqrt_ratio_x96(amount1: BigInt, amount0: BigInt) -> BigInt {
-    let numberator = amount1 << 192;
-
-    let ratio_x192: BigInt = numberator / amount0;
-
+    let numerator = amount1 << 192;
+    let ratio_x192: BigInt = numerator / amount0;
     return ratio_x192.sqrt();
 }
 
@@ -36,7 +34,7 @@ pub fn getSqrtRatioAtTick(tick: BigInt) -> BigInt {
 
     assert!(tick >= MIN_TICK.clone() && tick <= MAX_TICK);
     let absTick = tick.abs();
-    let mut ratio = if absTick.clone() & BigInt::one() != BigInt::zero() {
+    let mut ratio = if absTick.clone() & BigInt::parse_bytes(b"1", 16).unwrap() != BigInt::zero() {
         BigInt::parse_bytes(b"fffcb933bd6fad37aa2d162d1a594001", 16).unwrap()
     } else {
         BigInt::parse_bytes(b"100000000000000000000000000000000", 16).unwrap()
@@ -144,7 +142,7 @@ pub fn getSqrtRatioAtTick(tick: BigInt) -> BigInt {
     };
 
     ratio = if ratio.clone().rem(Q32.clone()) > BigInt::zero() {
-        ratio / Q32 + BigInt::one()
+        (ratio / Q32 ) + BigInt::one()
     } else {
         ratio / Q32
     };
@@ -155,40 +153,49 @@ pub fn getTickAtSqrtRatio(sqrtRatioX96: BigInt) -> i32 {
     let MIN_SQRT_RATIO: BigInt = 4295128739i64.to_bigint().unwrap();
 
     let MAX_SQRT_RATIO: BigInt =
-        BigInt::parse_bytes(b"1461446703485210103287273052203988822378723970342", 10).unwrap();
+        "1461446703485210103287273052203988822378723970342".parse().unwrap();
 
     assert!(sqrtRatioX96 >= MIN_SQRT_RATIO && sqrtRatioX96 < MAX_SQRT_RATIO);
 
     let sqrtRatioX128: BigInt = sqrtRatioX96.clone() << 32;
     let msb = most_significant_bit(sqrtRatioX128.clone());
 
-    let mut r = if msb >= 128.to_bigint().unwrap() {
-        sqrtRatioX128.clone() >> (msb.to_i64().unwrap() - 127)
+
+
+    let mut r = if msb >= 128 {
+        sqrtRatioX128.clone() >> (msb - 127)
     } else {
-        sqrtRatioX128 << (127 - msb.to_i64().unwrap())
+        sqrtRatioX128 << (127 - msb)
     };
 
-    let mut log_2 = (msb - 128.to_bigint().unwrap()) << 64;
+    let mut log_2:BigInt = (msb - 128.to_bigint().unwrap()) << 64;
 
     for i in 0..14 {
-        r = (r.clone() * r) >> 127;
-        let f: BigInt = r.clone() >> 128;
+        r = (r.clone() * r) >> 127i32;
+        let f: BigInt = r.clone() >> 128i32;
         log_2 = log_2 | (f.clone() << (63 - i));
         r = r >> f.clone().to_i64().unwrap();
     }
 
+    let val:BigInt ="255738958999603826347141".parse().unwrap();
     let loq_sqrt0001: BigInt =
-        log_2 * BigInt::parse_bytes(b"255738958999603826347141", 10).unwrap();
+        log_2 * val;
 
+    let val:BigInt = "3402992956809132418596140100660247210".parse().unwrap();
     let tick_low: BigInt = (loq_sqrt0001.clone()
-        - BigInt::parse_bytes(b"3402992956809132418596140100660247210", 10).unwrap())
+        - val)
         >> 128;
     let tick_low = tick_low.to_i32().unwrap();
 
+
+    let val:BigInt ="291339464771989622907027621153398088495".parse().unwrap();
+
     let tick_high: BigInt = (loq_sqrt0001.clone()
-        + BigInt::parse_bytes(b"291339464771989622907027621153398088495", 10).unwrap())
+        + val)
         >> 128;
     let tick_high = tick_high.to_i32().unwrap();
+
+
     if tick_low == tick_high {
         return tick_low;
     } else if getSqrtRatioAtTick(tick_high.to_bigint().unwrap()) <= sqrtRatioX96 {
@@ -198,7 +205,7 @@ pub fn getTickAtSqrtRatio(sqrtRatioX96: BigInt) -> i32 {
     }
 }
 
-pub fn most_significant_bit(mut x: BigInt) -> BigInt {
+pub fn most_significant_bit(mut x: BigInt) -> u32 {
     assert!(x.clone() >= BigInt::zero());
     let TWO: BigInt = 2.to_bigint().unwrap();
     let POWERS_OF_2: Vec<(u32, BigInt)> = [128u32, 64u32, 32u32, 16u32, 8u32, 4u32, 2u32, 1u32]
@@ -212,11 +219,11 @@ pub fn most_significant_bit(mut x: BigInt) -> BigInt {
     )
     .unwrap();
     assert!(x.clone() < MAX_UINT_256);
-    let mut msb = BigInt::zero();
+    let mut msb = 0;
 
     for (power, min) in POWERS_OF_2 {
         if x >= min {
-            x >>= power;
+            x = x >> (power as i32);
             msb += power;
         }
     }
@@ -323,10 +330,10 @@ pub fn priceToTick(price: Price) -> i32 {
         }
     } else {
         if !(price > nextTickPrice) {
-            tick= tick + 1;
+            tick = tick + 1;
+        }
     }
-}
-return tick;
+    return tick;
 }
 pub fn maxLiquidityForAmount0(
     sqrtRatioAX96: BigInt,
@@ -463,13 +470,13 @@ mod tests {
 
         for i in 1u32..256u32 {
             let x = TWO.pow(i);
-            assert_eq!(i.to_bigint().unwrap(), most_significant_bit(x))
+            assert_eq!(i, most_significant_bit(x))
         }
 
         for i in 2u32..256u32 {
             let x = TWO.pow(i) - BigInt::one();
             assert_eq!(
-                i.to_bigint().unwrap() - BigInt::one(),
+                i - 1,
                 most_significant_bit(x)
             )
         }
@@ -533,12 +540,33 @@ mod tests {
             address: "0x0".to_string(),
         };
 
-        let price = tickToPrice(t0.clone(), t1.clone(), 74960.to_bigint().unwrap());
+        let price = Price {
+            amount_0: 100e18.to_bigint().unwrap(),
+            amount_1: 101e6.to_bigint().unwrap(),
+            token_0: t0.clone(),
+            token_1: t1.clone(),
+        };
         let tick = priceToTick(price);
-        assert_eq!(tick, 74961);
+        assert_eq!(tick, -276225);
 
-        let price = tickToPrice(t0, t1, -276423.to_bigint().unwrap());
+
+        let price = Price {
+            amount_0: 1.to_bigint().unwrap(),
+            amount_1: "1800".parse().unwrap(),
+            token_0: t1.clone(),
+            token_1: t0.clone(),
+        };
         let tick = priceToTick(price);
-        assert_eq!(tick, -276423i32);
+        assert_eq!(tick, -74960);
+
+
+        let price = Price {
+            amount_0: 100e18.to_bigint().unwrap(),
+            amount_1: 101e6.to_bigint().unwrap(),
+            token_0: t0,
+            token_1: t1,
+        };
+        let tick = priceToTick(price);
+        assert_eq!(tick, -276225);
     }
 }
